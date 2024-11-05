@@ -5,6 +5,7 @@ public class Card {
     public int getRank(){
         return this.rank;
     }
+    //TODO put into constructor
     public void setRank(int rank){
         this.rank = rank;
     }
