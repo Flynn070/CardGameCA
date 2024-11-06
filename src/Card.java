@@ -1,12 +1,12 @@
 public class Card {
-    private int rank;
+    final private int rank;
+
+    public Card (int _rank) {
+        this.rank = _rank;
+    }
 
     //Getter and Setter methods
     public int getRank(){
         return this.rank;
-    }
-    //TODO put into constructor
-    public void setRank(int rank){
-        this.rank = rank;
     }
 }

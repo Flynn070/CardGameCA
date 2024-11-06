@@ -13,6 +13,7 @@ public class Deck {
     public Queue<Card> getDeck() {
         return this.deck;
     }
+
     public int getDeckID() {
         return this.deckID;
     }
