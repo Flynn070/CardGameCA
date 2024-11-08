@@ -9,7 +9,19 @@ import java.util.Arrays;
 
 public class Main {
 
+    private static int checkIfValid(String numberInput) throws InvalidNumberException, NumberFormatException, NullPointerException {
+        //Checks if a string can be cast to a positive integer
+        int number = Integer.parseInt(numberInput); // Casts input to an integer.
+        if (number <= 0) {
+            throw new InvalidNumberException();
+        }
+
+        return number;
+    }
+
     public static void main(String[] args) {
+
+        //initialisation --------------------------------------------------------------------------------
         Scanner usrInput = new Scanner(System.in);
 
         System.out.println("Please enter the number of players: ");
@@ -20,13 +32,13 @@ public class Main {
             try {
                 numPlayers = checkIfValid(numPlayersInput); //validate input
                 validNum = true;
-            }   catch (NumberFormatException e) {
+            } catch (NumberFormatException e) {
                 System.out.println("Invalid type of input for number of players. Please enter a integer greater than 0");
-            }   catch (InvalidNumberException e) {
+            } catch (InvalidNumberException e) {
                 System.out.println("Integer cannot be less than or to 0 for number of players.");
-            }   catch (NullPointerException e){
+            } catch (NullPointerException e) {
                 System.out.println("Input was empty. Please input a valid integer.");
-            }   catch (Exception e){
+            } catch (Exception e) {
                 e.printStackTrace(System.out);
             }
         }
@@ -42,31 +54,31 @@ public class Main {
             try {
                 packFile = new File(filePath);
                 fileReader = new Scanner(packFile);
-                 if (filePath.length() < 4){    //checking file can be a text file
-                     throw new IncorrectFileTypeException();
-                 }
-                 if (!(filePath.endsWith(".txt"))){
-                     throw new IncorrectFileTypeException();
-                 }
+                if (filePath.length() < 4) {    //checking file can be a text file
+                    throw new IncorrectFileTypeException();
+                }
+                if (!(filePath.endsWith(".txt"))) {
+                    throw new IncorrectFileTypeException();
+                }
 
-                 int numLines = 0;
-                 while (fileReader.hasNextLine()) { //reads each file line
-                     String fileLine = fileReader.nextLine();
-                     numLines++;
-                     pack.add(new Card(checkIfValid(fileLine)));  //if line is a valid integer, make a card with that value and add to pack
-                 }
+                int numLines = 0;
+                while (fileReader.hasNextLine()) { //reads each file line
+                    String fileLine = fileReader.nextLine();
+                    numLines++;
+                    pack.add(new Card(checkIfValid(fileLine)));  //if line is a valid integer, make a card with that value and add to pack
+                }
 
-                 if (numLines / numPlayers != 8) {
-                     // if the number of lines in the file is not 8 * the number of players, the file should be considered invalid.
-                     throw new InvalidFileLengthException();
-                 }
+                if (numLines / numPlayers != 8) {
+                    // if the number of lines in the file is not 8 * the number of players, the file should be considered invalid.
+                    throw new InvalidFileLengthException();
+                }
 
-                 validFile = true;
+                validFile = true;
             } catch (FileNotFoundException e) {
                 System.out.println("Cannot find file using given path. Please enter a valid path.");
-            } catch (NumberFormatException e){
+            } catch (NumberFormatException e) {
                 System.out.println("Type of data in file is invalid. Each line must contain an integer.");
-            } catch (IncorrectFileTypeException e){
+            } catch (IncorrectFileTypeException e) {
                 System.out.println("Pack file should be a .txt file. Please enter a valid .txt file path.");
                 e.printStackTrace(System.out);
             } catch (InvalidNumberException e) {
@@ -91,7 +103,7 @@ public class Main {
                 startingHand[handPos] = pack.get(randLnNum); //sets value of current hand position to the randomly picked card
                 pack.remove(randLnNum); //removes chosen card from pack
             }
-            players[currPlayerNum - 1] = new Player (currPlayerNum, startingHand);  //instantiates the player with created hand
+            players[currPlayerNum - 1] = new Player(currPlayerNum, startingHand);  //instantiates the player with created hand
         }
 
         //Putting cards into each deck
@@ -102,15 +114,60 @@ public class Main {
                 startingDeck.add(pack.get(randLnNum));
                 pack.remove(randLnNum);
             }
-            decks[currDeckNum - 1] = new Deck (startingDeck, currDeckNum);
+            decks[currDeckNum - 1] = new Deck(startingDeck, currDeckNum);
         }
 
+        //main program loop ----------------------------------------------------------------------------------
+
+        Thread[] playerThreads = new Thread[numPlayers];
+
+        // start the player threads
+        for (Player currPlayer : players) {
+            currPlayer.setDrawDeck(decks[currPlayer.getID() - 1]);  //assigns deck for player to draw from
+            if (currPlayer.getID() != numPlayers) {
+                currPlayer.setDiscardDeck(decks[currPlayer.getID()]);   //assigns next deck for player to discard to, unless final player
+            } else {
+                currPlayer.setDiscardDeck(decks[0]);    //assigns final player the first deck to discard to
+            }
+
+            Thread currThread = new Thread(currPlayer);
+            playerThreads[currPlayer.getID() - 1] = currThread;
+            currThread.start();
+        }
+
+        int testCount = 0;
+        while (true) {
+            System.out.println("Turn: " + testCount);
+
+            boolean allThreadsWaiting = false;          //flag if all threads have finished turn
+            while (!allThreadsWaiting) {
+                allThreadsWaiting = true;               //assume all threads have finished
+                for (int i = 0; i < numPlayers; i++) {
+                    if (playerThreads[i].getState() != Thread.State.WAITING) {  //check if each thread is finished individually
+                        allThreadsWaiting = false;                              //if any thread is still executing, loop again
+                    }
+                }
+            }
+
+            if (testCount == 5) {
+                for (Player currentPlayer : players) {
+                    currentPlayer.stop();
+                }
+                break;
+            } else {
+                System.out.println("End of Turn " + testCount);
+                players[1].notifyPlayers();
+                testCount++;
+            }
+        }
+
+        //Ending game messages -------------------------------------------------------------------------------
         System.out.println(Arrays.toString(decks));
         System.out.println(Arrays.toString(players));
 
         for (Deck currDeck : decks) {
             for (Card currCard : currDeck.getDeck()) {
-                System.out.println(Integer.toString(currCard.getRank()));
+                System.out.println(currCard.getRank());
             }
 
         }
@@ -118,15 +175,4 @@ public class Main {
         System.out.println("yippee");
 
     }
-
-    private static int checkIfValid(String numberInput) throws InvalidNumberException, NumberFormatException, NullPointerException {
-        //Checks if a string can be cast to a positive integer
-        int number = Integer.parseInt(numberInput); // Casts input to an integer.
-        if (number <= 0) {
-            throw new InvalidNumberException();
-        }
-
-        return number;
-    }
-
 }
