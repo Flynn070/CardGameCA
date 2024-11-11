@@ -1,4 +1,7 @@
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.io.FileWriter;
 
 public class Player implements Runnable {
 
@@ -7,26 +10,56 @@ public class Player implements Runnable {
     private Deck drawDeck; // deck with matching id
     private Deck discardDeck; // deck of the next player (can wrap around if this is the last player)
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private final AtomicBoolean paused = new AtomicBoolean(false);
+    private final AtomicBoolean won = new AtomicBoolean(false);
+    private Thread playerThread;
+    private CyclicBarrier barrier;
+    private FileWriter playerOutputFile;
 
     //TODO ? hand in constructor seems cleaner?
-    public Player(int playerNum, Card[] hand) {
+    public Player(int playerNum, Card[] hand, CyclicBarrier _barrier) {
         this.playerID = playerNum;
         this.hand = hand;
+        this.barrier = _barrier;
+        playerThread = new Thread(this);
     }
     //Getter and Setter methods
     public int getID() {
         return playerID;
     }
 
+    public Thread getPlayerThread() {return playerThread;}
 
     synchronized void endTurn() {
         try {
-            wait();
+            barrier.await();
         } catch (InterruptedException e) {
             System.out.println("help meeeeeee");
+        } catch (BrokenBarrierException e) {
+            System.out.println("oh noooooooooo");
         }
     }
 
+    public void start() {
+        playerThread.start();
+    }
+
+    public void stop() {
+        running.set(false);
+    }
+
+    public void interrupt() {
+        running.set(false);
+        playerThread.interrupt();
+    }
+
+    boolean isRunning() {
+        return running.get();
+    }
+
+    boolean hasWon() {
+        return won.get();
+    }
 
     public void setDrawDeck(Deck _drawDeck) {
         this.drawDeck = _drawDeck;
@@ -36,12 +69,11 @@ public class Player implements Runnable {
         this.discardDeck = _discardDeck;
     }
 
-    synchronized void notifyPlayers() {
-        notifyAll();
-    }
-
-    public void stop() {
-        running.set(false);
+    //called by the main class if another player wins the game before this one, which will write the relevant
+    public void otherPlayerWon(int winnerID) {
+        System.out.println("Player " + this.playerID + " is informed Player " + winnerID + " won.");
+        //TODO write other player winning to text file
+        this.stop();
     }
 
     //TODO The combination of a card draw, and a discard should be treated as a single atomic action. - from the spec
@@ -62,9 +94,9 @@ public class Player implements Runnable {
             }
         }
 
-
         if (checkIfWon()) {
-
+            won.set(true);
+            System.out.println("Player " + this.playerID + " won.");
         }
     }
 
@@ -76,8 +108,9 @@ public class Player implements Runnable {
     public void run(){
         running.set(true);
         while (this.running.get()){    //loops until interrupted
-
-            this.takeTurn();
+            if (!this.won.get()) {
+                this.takeTurn();
+            }
             this.endTurn();
         }
 

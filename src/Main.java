@@ -1,11 +1,13 @@
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.Arrays;
+import java.util.concurrent.CyclicBarrier;
 
 public class Main {
 
@@ -15,11 +17,12 @@ public class Main {
         if (number <= 0) {
             throw new InvalidNumberException();
         }
-
         return number;
     }
 
+
     public static void main(String[] args) {
+        final CyclicBarrier turnCoordinator;
 
         //initialisation --------------------------------------------------------------------------------
         Scanner usrInput = new Scanner(System.in);
@@ -95,6 +98,9 @@ public class Main {
         Deck[] decks = new Deck[numPlayers];
         Player[] players = new Player[numPlayers];
 
+        turnCoordinator = new CyclicBarrier(numPlayers);
+        List<Thread> playerThreads = new ArrayList<Thread>(numPlayers);
+
         //Putting cards into each players hand
         for (int currPlayerNum = 1; currPlayerNum <= numPlayers; currPlayerNum++) {
             Card[] startingHand = new Card[4];
@@ -103,7 +109,8 @@ public class Main {
                 startingHand[handPos] = pack.get(randLnNum); //sets value of current hand position to the randomly picked card
                 pack.remove(randLnNum); //removes chosen card from pack
             }
-            players[currPlayerNum - 1] = new Player(currPlayerNum, startingHand);  //instantiates the player with created hand
+            players[currPlayerNum - 1] = new Player(currPlayerNum, startingHand, turnCoordinator);  //instantiates the player with created hand
+            playerThreads.add(players[(currPlayerNum - 1)].getPlayerThread());
         }
 
         //Putting cards into each deck
@@ -117,11 +124,7 @@ public class Main {
             decks[currDeckNum - 1] = new Deck(startingDeck, currDeckNum);
         }
 
-        //main program loop ----------------------------------------------------------------------------------
-
-        Thread[] playerThreads = new Thread[numPlayers];
-
-        // start the player threads
+        // initialise the player objects, and start their threads.
         for (Player currPlayer : players) {
             currPlayer.setDrawDeck(decks[currPlayer.getID() - 1]);  //assigns deck for player to draw from
             if (currPlayer.getID() != numPlayers) {
@@ -130,34 +133,27 @@ public class Main {
                 currPlayer.setDiscardDeck(decks[0]);    //assigns final player the first deck to discard to
             }
 
-            Thread currThread = new Thread(currPlayer);
-            playerThreads[currPlayer.getID() - 1] = currThread;
-            currThread.start();
+            currPlayer.start();
+
         }
 
-        int testCount = 0;
-        while (true) {
-            System.out.println("Turn: " + testCount);
+        //main program loop ----------------------------------------------------------------------------------
 
-            boolean allThreadsWaiting = false;          //flag if all threads have finished turn
-            while (!allThreadsWaiting) {
-                allThreadsWaiting = true;               //assume all threads have finished
-                for (int i = 0; i < numPlayers; i++) {
-                    if (playerThreads[i].getState() != Thread.State.WAITING) {  //check if each thread is finished individually
-                        allThreadsWaiting = false;                              //if any thread is still executing, loop again
+        boolean gameWon = false;
+        while (!gameWon) {                                              //loop until game won
+            for (Player currPlayer : players) {                         //each loop, check every player
+                System.out.println("Deck " + Arrays.toString(decks[currPlayer.getID() - 1].getDeck().toArray()));
+                if (currPlayer.hasWon()) {                              //check if each player has won
+                    gameWon = true;
+                    System.out.println("A player has won");
+                    for (Player loser : players) {                      //for every player
+                        if (!(loser.getID() == currPlayer.getID())){    //if the player is not the player that has won, inform it that another player has won
+                            loser.otherPlayerWon(currPlayer.getID());
+                        }
                     }
+                    currPlayer.stop();
+                    break;
                 }
-            }
-
-            if (testCount == 5) {
-                for (Player currentPlayer : players) {
-                    currentPlayer.stop();
-                }
-                break;
-            } else {
-                System.out.println("End of Turn " + testCount);
-                players[1].notifyPlayers();
-                testCount++;
             }
         }
 
