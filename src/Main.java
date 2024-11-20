@@ -142,10 +142,10 @@ public class Main {
         boolean gameWon = false;
         while (!gameWon) {                                              //loop until game won
             for (Player currPlayer : players) {                         //each loop, check every player
-                System.out.println("Deck " + Arrays.toString(decks[currPlayer.getID() - 1].getDeck().toArray()));
+
                 if (currPlayer.hasWon()) {                              //check if each player has won
                     gameWon = true;
-                    System.out.println("A player has won");
+
                     for (Player loser : players) {                      //for every player
                         if (!(loser.getID() == currPlayer.getID())){    //if the player is not the player that has won, inform it that another player has won
                             loser.otherPlayerWon(currPlayer.getID());
@@ -162,11 +162,9 @@ public class Main {
         System.out.println(Arrays.toString(players));
 
         for (Deck currDeck : decks) {
-            for (Card currCard : currDeck.getDeck()) {
-                System.out.println(currCard.getRank());
-            }
-
+            currDeck.outputDeck();
         }
+
 
         System.out.println("yippee");
 
