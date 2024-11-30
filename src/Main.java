@@ -1,12 +1,10 @@
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Random;
 import java.util.Scanner;
-import java.util.Arrays;
 import java.util.concurrent.CyclicBarrier;
 
 public class Main {
@@ -20,13 +18,13 @@ public class Main {
         return number;
     }
 
-
     public static void main(String[] args) {
         final CyclicBarrier turnCoordinator;
 
-        //initialisation --------------------------------------------------------------------------------
+        //initialisation -----------------------------------------------------------------------------------------------
         Scanner usrInput = new Scanner(System.in);
 
+        //Taking input for amount of players
         System.out.println("Please enter the number of players: ");
         boolean validNum = false;   //flag to exit while loop
         int numPlayers = 1; // 1 is a default value, will change based on user input
@@ -46,18 +44,19 @@ public class Main {
             }
         }
 
+        //Taking input for location of pack file and compiling pack
         System.out.println("Please enter the path to the pack file.");
-        boolean validFile = false;  //flag to exit while loop
+        boolean validFile = false;                                  //flag to exit while loop
         File packFile;
         Scanner fileReader;
         ArrayList<Card> pack = new ArrayList<Card>();
         while (!validFile) {
             String filePath = usrInput.nextLine();
-            pack.clear();
+            pack.clear();                                           //clears pack arrayList in case of previous failed attempt
             try {
                 packFile = new File(filePath);
                 fileReader = new Scanner(packFile);
-                if (filePath.length() < 4) {    //checking file can be a text file
+                if (filePath.length() < 4) {                        //checking file can be a text file
                     throw new IncorrectFileTypeException();
                 }
                 if (!(filePath.endsWith(".txt"))) {
@@ -65,10 +64,10 @@ public class Main {
                 }
 
                 int numLines = 0;
-                while (fileReader.hasNextLine()) { //reads each file line
+                while (fileReader.hasNextLine()) {                  //reads each file line
                     String fileLine = fileReader.nextLine();
                     numLines++;
-                    pack.add(new Card(checkIfValid(fileLine)));  //if line is a valid integer, make a card with that value and add to pack
+                    pack.add(new Card(checkIfValid(fileLine)));     //if line is a valid integer, make a card with that value and add to pack
                 }
 
                 if (numLines / numPlayers != 8) {
@@ -91,33 +90,31 @@ public class Main {
             }
         }
 
-        // used to make the distribution of starting hands from the pack less deterministic, using the current time as the seed.
+        // Used to make the distribution of starting hands from the pack less deterministic, using the current time as the seed.
         Random rand = new Random(System.currentTimeMillis());
 
         // Holds the pointers to all the deck and player objects in the game.
         Deck[] decks = new Deck[numPlayers];
         Player[] players = new Player[numPlayers];
 
-        turnCoordinator = new CyclicBarrier(numPlayers);
-        List<Thread> playerThreads = new ArrayList<Thread>(numPlayers);
+        turnCoordinator = new CyclicBarrier(numPlayers);                //CyclicBarrier to assign all threads to
 
         //Putting cards into each players hand
         for (int currPlayerNum = 1; currPlayerNum <= numPlayers; currPlayerNum++) {
             Card[] startingHand = new Card[4];
-            for (int handPos = 0; handPos <= 3; handPos++) {    //hands are of 4 cards
-                int randLnNum = rand.nextInt(pack.size());  //picks index of random card from pack
-                startingHand[handPos] = pack.get(randLnNum); //sets value of current hand position to the randomly picked card
-                pack.remove(randLnNum); //removes chosen card from pack
+            for (int handPos = 0; handPos <= 3; handPos++) {            //hands are of 4 cards
+                int randLnNum = rand.nextInt(pack.size());              //picks index of random card from pack
+                startingHand[handPos] = pack.get(randLnNum);            //sets value of current hand position to the randomly picked card
+                pack.remove(randLnNum);                                 //removes chosen card from pack
             }
             players[currPlayerNum - 1] = new Player(currPlayerNum, startingHand, turnCoordinator);  //instantiates the player with created hand
-            playerThreads.add(players[(currPlayerNum - 1)].getPlayerThread());
         }
 
         //Putting cards into each deck
         for (int currDeckNum = 1; currDeckNum <= numPlayers; currDeckNum++) {
             Queue<Card> startingDeck = new LinkedList<Card>();
-            for (int deckPos = 0; deckPos <= 3; deckPos++) {   //decks will always have 4 cards, regardless of number of players
-                int randLnNum = rand.nextInt(pack.size());  //picks random card from pack
+            for (int deckPos = 0; deckPos <= 3; deckPos++) {            //decks will always have 4 cards, regardless of number of players
+                int randLnNum = rand.nextInt(pack.size());              //picks random card from pack
                 startingDeck.add(pack.get(randLnNum));
                 pack.remove(randLnNum);
             }
@@ -126,18 +123,16 @@ public class Main {
 
         // initialise the player objects, and start their threads.
         for (Player currPlayer : players) {
-            currPlayer.setDrawDeck(decks[currPlayer.getID() - 1]);  //assigns deck for player to draw from
+            currPlayer.setDrawDeck(decks[currPlayer.getID() - 1]);      //assigns deck for player to draw from
             if (currPlayer.getID() != numPlayers) {
                 currPlayer.setDiscardDeck(decks[currPlayer.getID()]);   //assigns next deck for player to discard to, unless final player
             } else {
-                currPlayer.setDiscardDeck(decks[0]);    //assigns final player the first deck to discard to
+                currPlayer.setDiscardDeck(decks[0]);                    //assigns final player the first deck to discard to
             }
-
             currPlayer.start();
-
         }
 
-        //main program loop ----------------------------------------------------------------------------------
+        //main program loop --------------------------------------------------------------------------------------------
 
         boolean gameWon = false;
         while (!gameWon) {                                              //loop until game won
@@ -157,16 +152,6 @@ public class Main {
             }
         }
 
-        //Ending game messages -------------------------------------------------------------------------------
-        System.out.println(Arrays.toString(decks));
-        System.out.println(Arrays.toString(players));
-
-        for (Deck currDeck : decks) {
-            currDeck.outputDeck();
-        }
-
-
-        System.out.println("yippee");
-
+        System.out.println("Game Over");
     }
 }

@@ -8,15 +8,14 @@ public class Player implements Runnable {
 
     private final int playerID;
     private volatile Card[] hand;
-    private Deck drawDeck; // deck with matching id
-    private Deck discardDeck; // deck of the next player (can wrap around if this is the last player)
+    private Deck drawDeck;                                              //deck with id matching the player
+    private Deck discardDeck;                                           //deck of the next player (can wrap around if this is the last player)
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicBoolean won = new AtomicBoolean(false);
     private Thread playerThread;
     private CyclicBarrier barrier;
     private FileWriter playerOutputFile;
 
-    //TODO ? hand in constructor seems cleaner?
     public Player(int playerNum, Card[] hand, CyclicBarrier _barrier) {
         this.playerID = playerNum;
         this.hand = hand;
@@ -29,50 +28,33 @@ public class Player implements Runnable {
             e.printStackTrace();
         }
     }
-    //Getter and Setter methods
-    public int getID() {
-        return playerID;
-    }
 
-    public Thread getPlayerThread() {return playerThread;}
+    //Getter and Setter methods ----------------------------------------------------------------------------------------
+    public int getID() {return playerID;}
 
-    synchronized void endTurn() {
-        try {
-            barrier.await();
-        } catch (InterruptedException e) {
-            System.out.println("help meeeeeee");
-        } catch (BrokenBarrierException e) {
-            running.set(false);
-        }
-    }
+    boolean hasWon() {return won.get();}
+
+    public void setDrawDeck(Deck _drawDeck) {this.drawDeck = _drawDeck;}
+
+    public void setDiscardDeck(Deck _discardDeck) {this.discardDeck = _discardDeck;}
+
+    //Thread methods ---------------------------------------------------------------------------------------------------
 
     public void start() {
         playerThread.start();
     }
 
     public void stop() {
+        try {
+            playerOutputFile.close();
+        } catch (IOException e) {
+            System.out.println("Error while closing file");
+        }
         running.set(false);
     }
 
-    public void interrupt() {
-        running.set(false);
-        playerThread.interrupt();
-    }
-
-    boolean isRunning() {
-        return running.get();
-    }
-
-    boolean hasWon() {
-        return won.get();
-    }
-
-    public void setDrawDeck(Deck _drawDeck) {
-        this.drawDeck = _drawDeck;
-    }
-
-    public void setDiscardDeck(Deck _discardDeck) {
-        this.discardDeck = _discardDeck;
+    public boolean checkIfWon(){
+        return this.hand[0].getRank() == this.hand[1].getRank() && this.hand[1].getRank() == this.hand[2].getRank() && this.hand[2].getRank() == this.hand[3].getRank();
     }
 
     //called by the main class if another player wins the game before this one, which will write the relevant
@@ -83,12 +65,11 @@ public class Player implements Runnable {
         catch (IOException e){
             e.printStackTrace();
         }
-        //TODO write other player winning to text file
         this.stop();
     }
 
-    //TODO The combination of a card draw, and a discard should be treated as a single atomic action. - from the spec
     public void takeTurn(){
+        //dealing with a player win
         if (checkIfWon()) {
             won.set(true);
             System.out.println("Player " + this.playerID + " won.");
@@ -98,26 +79,24 @@ public class Player implements Runnable {
             catch(IOException e) {
                 e.printStackTrace();
             }
-
             int numOtherPlayers = barrier.getParties() - 1;
-            while (barrier.getNumberWaiting() != numOtherPlayers){      //waits until all other players are waiting
-                continue;                                               //TODO other players dont finish printing. try different methods of file writing?
+            while (barrier.getNumberWaiting() != numOtherPlayers){      //waits until all other players are waiting at the barrier
+                continue;
             }
             barrier.reset();
             this.stop();
         }
 
-        //drawing and discarding oldest card that isn't players preferred denomination
+        //taking a turn - drawing a card and discarding the oldest card that isn't players preferred denomination
         for (int i = 0; i < 4; i++) {
-            if (this.hand[i].getRank() != playerID) {
+            if (this.hand[i].getRank() != playerID) {                   //loops through hand until a non-preferred card is found
                 this.discardDeck.discard(this.hand[i]);
                 try {
                     this.playerOutputFile.write("Player " + this.playerID + " discards a " + this.hand[i].getRank() + " to deck " + this.discardDeck.getDeckID() + "\n");
                 } catch(IOException e) {
                     e.printStackTrace();
                 }
-                //pushes the cards back so they retain age order
-                for (int j = i; j < 3; j++){
+                for (int j = i; j < 3; j++){                            //shifts the cards back in the hand so they retain age order
                     this.hand[j] = this.hand[j+1];
                 }
                 this.hand[3] = this.drawDeck.draw();
@@ -133,20 +112,23 @@ public class Player implements Runnable {
 
     }
 
-    public boolean checkIfWon(){
-        //TODO make this better?
-        return this.hand[0].getRank() == this.hand[1].getRank() && this.hand[1].getRank() == this.hand[2].getRank() && this.hand[2].getRank() == this.hand[3].getRank();
+    synchronized void endTurn() {
+        try {
+            barrier.await();                                                //when turn finished, thread should wait at the barrier
+        } catch (InterruptedException e) {
+            System.out.println("Thread " + this.playerID + " interrupted upon ending turn");
+        } catch (BrokenBarrierException e) {                                //if the barrier is broken/reset, the thread needs to terminate
+            running.set(false);
+        }
     }
 
     public void run(){
         running.set(true);
-        while (this.running.get()){    //loops until interrupted
+        while (this.running.get()){    //loops until thread is told to stop
             if (!this.won.get()) {
                 this.takeTurn();
             }
-            this.endTurn();
+            this.endTurn();             //endTurn handles if player has won
         }
-
-        System.out.println("player " + this.playerID + " yippee");
     }
 }
