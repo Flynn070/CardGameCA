@@ -32,7 +32,7 @@ public class Player implements Runnable {
     //Getter and Setter methods ----------------------------------------------------------------------------------------
     public int getID() {return playerID;}
 
-    boolean hasWon() {return won.get();}
+    public boolean hasWon() {return won.get();}
 
     public void setDrawDeck(Deck _drawDeck) {this.drawDeck = _drawDeck;}
 
@@ -53,7 +53,7 @@ public class Player implements Runnable {
         running.set(false);
     }
 
-    public boolean checkIfWon(){
+    private boolean checkIfWon(){
         return this.hand[0].getRank() == this.hand[1].getRank() && this.hand[1].getRank() == this.hand[2].getRank() && this.hand[2].getRank() == this.hand[3].getRank();
     }
 
@@ -68,7 +68,7 @@ public class Player implements Runnable {
         this.stop();
     }
 
-    public void takeTurn(){
+    private void takeTurn(){
         //dealing with a player win
         if (checkIfWon()) {
             won.set(true);
@@ -112,7 +112,7 @@ public class Player implements Runnable {
 
     }
 
-    synchronized void endTurn() {
+    private synchronized void endTurn() {
         try {
             barrier.await();                                                //when turn finished, thread should wait at the barrier
         } catch (InterruptedException e) {

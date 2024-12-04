@@ -17,6 +17,8 @@ public class Deck {
         return this.deckID;
     }
 
+    public Queue<Card> getDeck() {return this.deck;}
+
     //Deck methods -----------------------------------------------------------------------------------------------------
 
     //Used when card is discarded to the deck from a hand
