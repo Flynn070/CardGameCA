@@ -1,13 +1,14 @@
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+
 import java.util.LinkedList;
 import java.util.NoSuchElementException;
 import java.util.Queue;
 import java.util.Arrays;
+import java.util.Scanner;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -16,7 +17,7 @@ class DeckTest {
 
     @BeforeEach
     void setUp() {
-        Queue<Card> testCards = new LinkedList<Card>(Arrays.asList(new Card(1), new Card(2), new Card(3), new Card(4)));    //deck of 1,2,3,4
+        Queue<Card> testCards = new LinkedList<>(Arrays.asList(new Card(1), new Card(2), new Card(3), new Card(4)));    //deck of 1,2,3,4
         testDeck = new Deck(testCards, 1);
     }
 
@@ -28,9 +29,9 @@ class DeckTest {
     @Test
     void testDiscard() {
         Card testCard = new Card(5);
-        assertFalse(testDeck.getDeck().contains(testCard)); // we know that 5 is not in the test deck we defined
-        testDeck.discard(testCard); // should add 5 to the test deck
-        assertTrue(testDeck.getDeck().contains(testCard)); // checks if the card has been added
+        assertFalse(testDeck.getDeck().contains(testCard));                 // we know that 5 is not in the test deck we defined
+        testDeck.discard(testCard);                                         // should add 5 to the test deck
+        assertTrue(testDeck.getDeck().contains(testCard));                  // checks if the card has been added
     }
 
     @Test
@@ -45,5 +46,12 @@ class DeckTest {
     void testOutputDeck() {
         testDeck.outputDeck();
         assertTrue(new File("deck" + 1 + "_output.txt").isFile()); // checks if the output file has been made
+        File outputFile = new File("deck" + 1 + "_output.txt");
+        try {
+            Scanner fileReader = new Scanner(outputFile);
+            assertEquals(fileReader.nextLine(), "deck1 contents: 1 2 3 4");
+        } catch (FileNotFoundException e) {
+            fail("No output file to check.");
+        }
     }
 }

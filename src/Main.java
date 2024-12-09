@@ -10,7 +10,7 @@ import java.util.concurrent.CyclicBarrier;
 public class Main {
 
     private static int checkIfValid(String numberInput) throws InvalidNumberException, NumberFormatException, NullPointerException {
-        //Checks if a string can be cast to a positive integer
+        //Checks if a string can be cast to a positive integer and returns that integer
         int number = Integer.parseInt(numberInput); // Casts input to an integer.
         if (number <= 0) {
             throw new InvalidNumberException();
@@ -18,13 +18,8 @@ public class Main {
         return number;
     }
 
-    public static void main(String[] args) {
-        final CyclicBarrier turnCoordinator;
-
-        //initialisation -----------------------------------------------------------------------------------------------
-        Scanner usrInput = new Scanner(System.in);
-
-        //Taking input for amount of players
+    private static int playerAmountInput(Scanner usrInput){
+        //Takes input from command line for the amount of players and returns a valid integer
         System.out.println("Please enter the number of players: ");
         boolean validNum = false;   //flag to exit while loop
         int numPlayers = 1; // 1 is a default value, will change based on user input
@@ -36,20 +31,23 @@ public class Main {
             } catch (NumberFormatException e) {
                 System.out.println("Invalid type of input for number of players. Please enter a integer greater than 0");
             } catch (InvalidNumberException e) {
-                System.out.println("Integer cannot be less than or to 0 for number of players.");
+                System.out.println("Integer cannot be less than or 0 for number of players.");
             } catch (NullPointerException e) {
                 System.out.println("Input was empty. Please input a valid integer.");
             } catch (Exception e) {
                 e.printStackTrace(System.out);
             }
         }
+        return numPlayers;
+    }
 
-        //Taking input for location of pack file and compiling pack
+    private static ArrayList<Card> compilePack(Scanner usrInput, int numPlayers){
+        //Takes input from command line of the location of pack file and returns a compiled pack in an arraylist of cards
         System.out.println("Please enter the path to the pack file.");
         boolean validFile = false;                                  //flag to exit while loop
         File packFile;
         Scanner fileReader;
-        ArrayList<Card> pack = new ArrayList<Card>();
+        ArrayList<Card> pack = new ArrayList<>();
         while (!validFile) {
             String filePath = usrInput.nextLine();
             pack.clear();                                           //clears pack arrayList in case of previous failed attempt
@@ -89,17 +87,12 @@ public class Main {
                 System.out.println("The number of lines in the file, must be 8 times the number of players.");
             }
         }
+        return pack;
+    }
 
-        // Used to make the distribution of starting hands from the pack less deterministic, using the current time as the seed.
-        Random rand = new Random(System.currentTimeMillis());
-
-        // Holds the pointers to all the deck and player objects in the game.
-        Deck[] decks = new Deck[numPlayers];
+    private static Player[] initialisePlayers(int numPlayers, ArrayList<Card> pack, CyclicBarrier turnCoordinator, Random rand) {
+        //Creates amount of players specified and randomly distributes 4 cards to each player from pack, returns list of created players
         Player[] players = new Player[numPlayers];
-
-        turnCoordinator = new CyclicBarrier(numPlayers);                //CyclicBarrier to assign all threads to
-
-        //Putting cards into each players hand
         for (int currPlayerNum = 1; currPlayerNum <= numPlayers; currPlayerNum++) {
             Card[] startingHand = new Card[4];
             for (int handPos = 0; handPos <= 3; handPos++) {            //hands are of 4 cards
@@ -109,10 +102,15 @@ public class Main {
             }
             players[currPlayerNum - 1] = new Player(currPlayerNum, startingHand, turnCoordinator);  //instantiates the player with created hand
         }
+        return players;
+    }
 
+    private static Deck[] initialiseDecks(int numPlayers, ArrayList<Card> pack, Random rand){
+        //Creates a deck for each player and randomly distributes 4 cards to each from pack, returns list of created decks
+        Deck[] decks = new Deck[numPlayers];
         //Putting cards into each deck
         for (int currDeckNum = 1; currDeckNum <= numPlayers; currDeckNum++) {
-            Queue<Card> startingDeck = new LinkedList<Card>();
+            Queue<Card> startingDeck = new LinkedList<>();
             for (int deckPos = 0; deckPos <= 3; deckPos++) {            //decks will always have 4 cards, regardless of number of players
                 int randLnNum = rand.nextInt(pack.size());              //picks random card from pack
                 startingDeck.add(pack.get(randLnNum));
@@ -120,6 +118,27 @@ public class Main {
             }
             decks[currDeckNum - 1] = new Deck(startingDeck, currDeckNum);
         }
+        return decks;
+    }
+
+    public static void main(String[] args) {
+        final CyclicBarrier turnCoordinator;
+
+        //initialisation -----------------------------------------------------------------------------------------------
+        Scanner usrInput = new Scanner(System.in);
+
+        //gets number of players and pack file from user input
+        int numPlayers = playerAmountInput(usrInput);
+        ArrayList<Card> pack = compilePack(usrInput, numPlayers);
+
+        // Used to make the distribution of starting hands from the pack less deterministic, using the current time as the seed.
+        Random rand = new Random(System.currentTimeMillis());
+
+        turnCoordinator = new CyclicBarrier(numPlayers);                //CyclicBarrier to assign all threads to
+
+        // Holds the pointers to all the deck and player objects in the game.
+        Player[] players = initialisePlayers(numPlayers, pack, turnCoordinator, rand);
+        Deck[] decks = initialiseDecks(numPlayers, pack, rand);
 
         // initialise the player objects, and start their threads.
         for (Player currPlayer : players) {
@@ -146,7 +165,7 @@ public class Main {
                             loser.otherPlayerWon(currPlayer.getID());
                         }
                     }
-                    currPlayer.stop();
+                    currPlayer.stop();                                  //stops each losing player (winner stops itself in takeTurn)
                     break;
                 }
             }

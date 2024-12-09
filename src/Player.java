@@ -38,6 +38,10 @@ public class Player implements Runnable {
 
     public void setDiscardDeck(Deck _discardDeck) {this.discardDeck = _discardDeck;}
 
+    public Deck getDrawDeck() {return drawDeck;}
+
+    public Deck getDiscardDeck() {return discardDeck;}
+
     //Thread methods ---------------------------------------------------------------------------------------------------
 
     public void start() {
@@ -57,7 +61,7 @@ public class Player implements Runnable {
         return this.hand[0].getRank() == this.hand[1].getRank() && this.hand[1].getRank() == this.hand[2].getRank() && this.hand[2].getRank() == this.hand[3].getRank();
     }
 
-    //called by the main class if another player wins the game before this one, which will write the relevant
+    //called by the main class if another player wins the game before this one, and will write the relevant player's id in the file
     public void otherPlayerWon(int winnerID) {
         try {
             this.playerOutputFile.write("Player " + this.playerID + " is informed Player " + winnerID + " won.\n");
